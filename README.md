@@ -36,6 +36,11 @@ This script will produce TestCases_Testomatio.csv
 It can be imported into [Testomat.io](https://app.testomat.io) by setting import format as Testomat.io
 
 
+## Customization
+
+This script is provided as is but feel free to update `convert.js` to match your needs.
+
+
 ## License
 
 MIT

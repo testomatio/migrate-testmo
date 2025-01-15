@@ -27,6 +27,20 @@ function convertTestCases(inputFile, outputFile) {
         skip_empty_lines: true
     });
 
+    // Define required columns
+    const requiredColumns = [
+        'Entity Key', 'Test Case Summary', 'Test Case Folder Path',
+    ];
+
+    // Validate columns
+    const inputColumns = Object.keys(records[0]);
+    const missingColumns = requiredColumns.filter(col => !inputColumns.includes(col));
+
+    if (missingColumns.length > 0) {
+        console.error('The following required columns are missing from the input file:', missingColumns.join(', '));
+        process.exit(1);
+    }
+
     let currentTestCase = null;
     const transformedData = [];
 

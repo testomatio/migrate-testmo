@@ -1,6 +1,6 @@
 # Migrate Qmetry
 
-This script converts Qmetry CSV script to Testomati.io CSV format
+This script converts Qmetry CSV script to Testomat.io CSV format
 
 ## Reqiurements
 

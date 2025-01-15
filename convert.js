@@ -43,12 +43,11 @@ function convertTestCases(inputFile, outputFile) {
             currentTestCase = {
                 'ID': `TS${record['Entity Key']}`,
                 'Title': record['Test Case Summary'],
-                'Status': record['Test Case Status'].toLowerCase(),
                 'Folder': record['Test Case Folder Path'],
                 'Emoji': '',
                 'Priority': mapPriority(record['Test Case Priority']),
-                'Tags': record['Label(s)'].split(',').map(tag => tag.trim()).join(','),
-                'Owner': record['Created By'].split('[')[0],
+                'Tags': record['Label(s)']?.split(',')?.map(tag => tag.trim())?.join(','),
+                'Owner': record['Created By']?.split('[')[0],
                 'Description': '',
                 'Examples': '',
                 'Labels': '',
@@ -90,7 +89,6 @@ function convertTestCases(inputFile, outputFile) {
         return {
             'ID': testCase.ID,
             'Title': testCase.Title,
-            'Status': testCase.Status,
             'Folder': testCase.Folder,
             'Emoji': '',
             'Priority': testCase.Priority,
@@ -108,7 +106,7 @@ function convertTestCases(inputFile, outputFile) {
     const output = stringify(finalData, {
         header: true,
         columns: [
-            'ID', 'Title', 'Status', 'Folder', 'Emoji', 'Priority',
+            'ID', 'Title', 'Folder', 'Emoji', 'Priority',
             'Tags', 'Owner', 'Description', 'Examples', 'Labels', 'Url', 'Matched'
         ]
     });

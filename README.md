@@ -1,6 +1,6 @@
-# Migrate Qmetry
+# Migrate Tetsmo
 
-This script converts Qmetry CSV script to Testomat.io CSV format
+This script converts Tetsmo CSV script to Testomat.io CSV format
 
 ## Reqiurements
 
@@ -12,17 +12,17 @@ This script converts Qmetry CSV script to Testomat.io CSV format
 Open terminal and run the following commands
 
 ```
-git clone git@github.com:testomatio/migrate-qmetry.git
-cd migrate-qmetry
+git clone git@github.com:testomatio/migrate-testmo.git
+cd migrate-testmo
 npm install
 ```
 
 ## Usage
 
-Run the script providing path to the Qmetry CSV file
+Run the script providing path to the Testmo CSV file
 
 ```
-node convert.js <path-to-qmetry-csv>
+node convert.js <path-to-testmo-csv>
 ```
 
 Example:

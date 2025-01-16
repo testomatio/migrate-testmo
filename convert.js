@@ -24,12 +24,12 @@ function convertTestCases(inputFile, outputFile) {
     const inputData = fs.readFileSync(inputFile, 'utf-8');
     const records = csv.parse(inputData, {
         columns: true,
-        skip_empty_lines: true
+        skip_empty_lines: true,
+        relax_quotes: true,  // Handle nested quotes in CSV
     });
-
     // Define required columns
     const requiredColumns = [
-        'Entity Key', 'Test Case Summary', 'Test Case Folder Path',
+        'Case ID', 'Case', 'Folder',
     ];
 
     // Validate columns
@@ -41,87 +41,30 @@ function convertTestCases(inputFile, outputFile) {
         process.exit(1);
     }
 
-    let currentTestCase = null;
-    const transformedData = [];
-
-    records.forEach(record => {
-        if (record['Test Case Summary']) {
-            // If we encounter a new test case summary, push the previous one to the transformed data
-            if (currentTestCase) {
-                transformedData.push(currentTestCase);
-            }
-
-            console.log('✅', record['Test Case Summary'])
-
-            // Start a new test case
-            currentTestCase = {
-                'ID': `TS${record['Entity Key']}`,
-                'Title': record['Test Case Summary'],
-                'Folder': record['Test Case Folder Path'],
-                'Emoji': '',
-                'Priority': mapPriority(record['Test Case Priority']),
-                'Tags': record['Label(s)']?.split(',')?.map(tag => tag.trim())?.join(','),
-                'Owner': record['Created By']?.split('[')[0],
-                'Description': '',
-                'Examples': '',
-                'Labels': '',
-                'Url': '',
-                'Matched': '',
-                'Steps': []
-            };
-        }
-
-        // Add steps to the current test case
-        const stepDescription = record['Step Description'] || '';
-        const stepExpectedOutcome = record['Step Expected Outcome(Plain Text)'] || '';
-
-        if (stepDescription && !stepDescription.includes('Preconditions:')) {
-          if (!currentTestCase.Steps.join(' ').includes('## Steps')) {
-            currentTestCase.Steps.push('\n\n## Steps\n');
-          }
-          currentTestCase.Steps.push(`* ${stepDescription.trim()}`);
-          if (stepExpectedOutcome) {
-              currentTestCase.Steps.push(`  *Expected:* ${stepExpectedOutcome.trim()}`);
-          }
-        }
-
-        // Add preconditions if they exist
-        if (stepDescription.includes('Preconditions:')) {
-            currentTestCase.Steps.push('\n## Precondition\n\n' + stepDescription
-                .split('Preconditions:')[1]
-                .trim());
-        }
-    });
-
-    // Push the last test case to the transformed data
-    if (currentTestCase) {
-        transformedData.push(currentTestCase);
-    }
-
-    // Transform the data to the target format
-    const finalData = transformedData.map(testCase => {
+    // Transform the data
+    const transformedData = records.map(record => {
         return {
-            'ID': testCase.ID,
-            'Title': testCase.Title,
-            'Folder': testCase.Folder,
+            'ID': `${record['Case ID'].toString().padStart(8, '0')}`,  // Generate 8-char ID with leading zeros
+            'Title': record['Case'],
+            'Status': 'manual',  // Default to manual since we're ignoring automation status
+            'Folder': record['Folder'],
             'Emoji': '',
-            'Priority': testCase.Priority,
-            'Tags': testCase.Tags,
-            'Owner': testCase.Owner,
-            'Description': testCase.Steps.join('\n'),
-            'Examples': '',
-            'Labels': '',
-            'Url': '',
-            'Matched': ''
+            'Priority': mapPriority(record['Priority']),
+            'Tags': record['Tags'],
+            'Owner': record['Created by'],
+            'Description': formatDescription(record),
+            'Labels': record['Test Type'] || '',  // Using Test Type as Labels
         };
     });
 
+    console.log(`${transformedData.length} test cases processed`)
+
     // Write to output CSV
-    const output = stringify(finalData, {
+    const output = stringify(transformedData, {
         header: true,
         columns: [
-            'ID', 'Title', 'Folder', 'Emoji', 'Priority',
-            'Tags', 'Owner', 'Description', 'Examples', 'Labels', 'Url', 'Matched'
+            'ID', 'Title', 'Status', 'Folder', 'Emoji', 'Priority',
+            'Tags', 'Owner', 'Description', 'Labels'
         ]
     });
 
@@ -131,11 +74,11 @@ function convertTestCases(inputFile, outputFile) {
 
 function mapPriority(priority) {
     const priorityMap = {
-        'Blocker': 'high',
-        'Critical': 'high',
-        'Major': 'normal',
-        'Minor': 'normal',
-        'Trivial': 'low'
+        'P0-Critical': 'high',
+        'P1-High': 'high',
+        'P2-Medium': 'normal',
+        'P3-Moderate': 'normal',
+        'P4-Low': 'low'
     };
     return priorityMap[priority] || 'normal';
 }
@@ -144,4 +87,39 @@ try {
     convertTestCases(inputFile, outputFile);
 } catch (error) {
     console.error('Error during conversion:', error.message);
+}
+
+function cleanHtml(text) {
+    if (!text) return '';
+    return text
+        .replace(/<br\s*\/?>/gi, '\n')  // Replace <br> with newline
+        .replace(/<\/?(p|ul|li)[^>]*>/gi, '') // Remove p, ul, li tags
+        .replace(/\n\s*\n/g, '\n')  // Remove multiple newlines
+        .trim();
+}
+
+function formatDescription(record) {
+    const parts = [];
+
+    // Add precondition if exists
+    if (record['Pre-condition']) {
+        parts.push('## Precondition\n');
+        parts.push(cleanHtml(record['Pre-condition']));
+    }
+
+    // Add description
+    if (record['Description']) {
+        if (parts.length > 0) parts.push('\n');
+        parts.push('## Description\n');
+        parts.push(cleanHtml(record['Description']));
+    }
+
+    // Add expected results if they exist
+    if (record['Expected']) {
+        if (parts.length > 0) parts.push('\n');
+        parts.push('## Expected Results\n');
+        parts.push(cleanHtml(record['Expected']));
+    }
+
+    return parts.join('\n');
 }

@@ -1,6 +1,6 @@
-# Migrate Tetsmo
+# Migrate Testmo
 
-This script converts Tetsmo CSV script to Testomat.io CSV format
+This script converts Testmo CSV script to Testomat.io CSV format
 
 ## Reqiurements
 

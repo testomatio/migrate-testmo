@@ -22,39 +22,59 @@ const outputFile = path.join(
 function convertTestCases(inputFile, outputFile) {
     // Read and parse input CSV
     const inputData = fs.readFileSync(inputFile, 'utf-8');
-    const records = csv.parse(inputData, {
-        columns: true,
-        skip_empty_lines: true,
-        relax_quotes: true,  // Handle nested quotes in CSV
-    });
+    const lines = inputData.split('\n');
     // Define required columns
-    const requiredColumns = [
-        'Case ID', 'Case', 'Folder',
-    ];
+    // Find the header row index by looking for required columns
+    const requiredColumns = ['Case ID', 'Case', 'Folder'];
+    let headerRowIndex = -1;
 
-    // Validate columns
-    const inputColumns = Object.keys(records[0]);
-    const missingColumns = requiredColumns.filter(col => !inputColumns.includes(col));
+    for (let i = 0; i < lines.length; i++) {
+        const row = lines[i];
+        const columns = row.split(/[,;]/).map(col => col.trim().replace(/^["']|["']$/g, ''));
 
-    if (missingColumns.length > 0) {
-        console.error('The following required columns are missing from the input file:', missingColumns.join(', '));
+        // Check if all required columns are present in this row
+        if (requiredColumns.every(col => columns.map(c => c.trim()).includes(col))) {
+            headerRowIndex = i;
+            break;
+        }
+    }
+
+    if (headerRowIndex === -1) {
+        console.error('Could not find header row with required columns:', requiredColumns.join(', '));
+        console.log('Columns found:', lines[0])
         process.exit(1);
     }
 
+    // Get actual CSV data starting from the header row
+    const csvData = lines.slice(headerRowIndex).join('\n');
+
+    // Parse the CSV data
+    const records = csv.parse(csvData, {
+        columns: true,
+        skip_empty_lines: true,
+        relax_quotes: true,
+    });
+
     // Transform the data
     const transformedData = records.map(record => {
-        return {
-            'ID': `${record['Case ID'].toString().padStart(8, '0')}`,  // Generate 8-char ID with leading zeros
-            'Title': record['Case'],
-            'Status': 'manual',  // Default to manual since we're ignoring automation status
-            'Folder': record['Folder'],
-            'Emoji': '',
-            'Priority': mapPriority(record['Priority']),
-            'Tags': record['Tags'],
-            'Owner': record['Created by'],
-            'Description': formatDescription(record),
-            'Labels': record['Test Type'] || '',  // Using Test Type as Labels
-        };
+      // Trim all keys in the record object
+      record = Object.keys(record).reduce((acc, key) => {
+        acc[key.trim()] = record[key];
+        return acc;
+      }, {});
+
+      return {
+          'ID': `${record['Case ID'].toString().padStart(8, '0')}`,  // Generate 8-char ID with leading zeros
+          'Title': record['Case'],
+          'Status': 'manual',  // Default to manual since we're ignoring automation status
+          'Folder': record['Folder'],
+          'Emoji': '',
+          'Priority': mapPriority(record['Priority']),
+          'Tags': record['Tags'],
+          'Owner': record['Created by'],
+          'Description': formatDescription(record),
+          'Labels': record['Test Type'] || '',  // Using Test Type as Labels
+      };
     });
 
     console.log(`${transformedData.length} test cases processed`)
@@ -87,13 +107,21 @@ try {
     convertTestCases(inputFile, outputFile);
 } catch (error) {
     console.error('Error during conversion:', error.message);
+    console.log(error.stack)
 }
 
 function cleanHtml(text) {
     if (!text) return '';
     return text
         .replace(/<br\s*\/?>/gi, '\n')  // Replace <br> with newline
-        .replace(/<\/?(p|ul|li)[^>]*>/gi, '') // Remove p, ul, li tags
+        .replace(/<(ul|ol)>((.*?)<\/\1>)/gi, (_, tag, content) => {
+            const items = content.match(/<li.*?>(.*?)<\/li>/gi) || [];
+            return '\n' + items.map(item => {
+                const text = item.replace(/<li.*?>(.*?)<\/li>/gi, '$1').trim();
+                return (tag === 'ul' ? '* ' : '1. ') + text;
+            }).join('\n');
+        }).replace(/<li.*?>(.*?)<\/li>/gi, '$1')  // Remove any remaining li tags
+        .replace(/<\/?(p|span|div|ul|ol)[^>]*>/gi, '') // Remove p, ul, li tags
         .replace(/\n\s*\n/g, '\n')  // Remove multiple newlines
         .trim();
 }
